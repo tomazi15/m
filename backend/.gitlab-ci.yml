@@ -1,0 +1,55 @@
+stages:
+  - build
+  - test
+  - release
+
+variables:
+    PROJECT_PATH: create/backend-coding-test
+
+    # Artifactory
+    DOCKER_REPOSITORY: artifactory.office.moo.com:5000
+    DOCKER_REPOSITORY_USER: build
+    DOCKER_REPOSITORY_PASS: AP4BJRAcR2sGgZW8wSWwJW8c9p8
+
+    # Pipeline build image
+    PIPELINE_IMAGE: $DOCKER_REPOSITORY/$PROJECT_PATH/temp_pipeline_builds:$CI_PIPELINE_ID
+
+    DEPLOY_IMAGE: $DOCKER_REPOSITORY/moo-coding-tests/backend-python-coding-test:latest
+
+build:
+  stage: build
+  before_script:
+    - docker login -u $DOCKER_REPOSITORY_USER -p $DOCKER_REPOSITORY_PASS $DOCKER_REPOSITORY
+  script:
+    - echo $PIPELINE_IMAGE
+    - docker build -t $PIPELINE_IMAGE .
+    - docker push $PIPELINE_IMAGE
+  only:
+    - branches
+
+unit_tests:
+  image: $PIPELINE_IMAGE
+  stage: test
+  script:
+    - pytest tests/unit
+  only:
+    - branches
+
+integration_tests:
+  image: $PIPELINE_IMAGE
+  stage: test
+  script:
+    - pytest tests/integration
+  only:
+    - branches
+
+release:
+  stage: release
+  before_script:
+    - docker login -u $DOCKER_REPOSITORY_USER -p $DOCKER_REPOSITORY_PASS $DOCKER_REPOSITORY
+  script:
+    - echo $DEPLOY_IMAGE
+    - docker build -t $DEPLOY_IMAGE .
+    - docker push $DEPLOY_IMAGE
+  only:
+    - master
